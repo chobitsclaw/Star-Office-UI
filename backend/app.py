@@ -453,6 +453,7 @@ def agent_reject():
 
         # Optionally free join key back to unused
         join_key = target.get("joinKey")
+
         keys_data = load_join_keys()
         if join_key:
             key_item = next((k for k in keys_data.get("keys", []) if k.get("key") == join_key), None)
@@ -483,6 +484,7 @@ def join_agent():
         name = data["name"].strip()
         state = data.get("state", "idle")
         detail = data.get("detail", "")
+        avatar = (data.get("avatar") or "").strip()
         join_key = data.get("joinKey", "").strip()
 
         # Normalize state early for compatibility
@@ -490,6 +492,10 @@ def join_agent():
 
         if not join_key:
             return jsonify({"ok": False, "msg": "请提供接入密钥"}), 400
+
+        allowed_avatars = {"guest_role_1", "guest_role_2", "guest_role_3", "guest_role_4", "guest_role_5", "guest_role_6"}
+        if avatar and avatar not in allowed_avatars:
+            return jsonify({"ok": False, "msg": "avatar 无效，应为 guest_role_1~guest_role_6"}), 400
 
         keys_data = load_join_keys()
         key_item = next((k for k in keys_data.get("keys", []) if k.get("key") == join_key), None)
@@ -565,8 +571,8 @@ def join_agent():
                 existing["authApprovedAt"] = datetime.now().isoformat()
                 existing["authExpiresAt"] = (datetime.now() + timedelta(hours=24)).isoformat()
                 existing["lastPushAt"] = datetime.now().isoformat()  # join 视为上线，纳入并发/离线判定
-                if name == "阿龙虾":
-                    existing["avatar"] = "guest_role_1"
+                if avatar:
+                    existing["avatar"] = avatar
                 elif not existing.get("avatar"):
                     import random
                     existing["avatar"] = random.choice(["guest_role_1", "guest_role_2", "guest_role_3", "guest_role_4", "guest_role_5", "guest_role_6"])
@@ -590,7 +596,7 @@ def join_agent():
                     "authApprovedAt": datetime.now().isoformat(),
                     "authExpiresAt": (datetime.now() + timedelta(hours=24)).isoformat(),
                     "lastPushAt": datetime.now().isoformat(),
-                    "avatar": ("guest_role_1" if name == "阿龙虾" else random.choice(["guest_role_1", "guest_role_2", "guest_role_3", "guest_role_4", "guest_role_5", "guest_role_6"]))
+                    "avatar": (avatar if avatar else random.choice(["guest_role_1", "guest_role_2", "guest_role_3", "guest_role_4", "guest_role_5", "guest_role_6"]))
                 })
 
             key_item["used"] = True
@@ -720,12 +726,16 @@ def agent_push():
         state = (data.get("state") or "").strip()
         detail = (data.get("detail") or "").strip()
         name = (data.get("name") or "").strip()
+        avatar = (data.get("avatar") or "").strip()
 
         if not agent_id or not join_key or not state:
             return jsonify({"ok": False, "msg": "缺少 agentId/joinKey/state"}), 400
 
         valid_states = {"idle", "writing", "researching", "executing", "syncing", "error"}
         state = normalize_agent_state(state)
+        allowed_avatars = {"guest_role_1", "guest_role_2", "guest_role_3", "guest_role_4", "guest_role_5", "guest_role_6"}
+        if avatar and avatar not in allowed_avatars:
+            return jsonify({"ok": False, "msg": "avatar 无效，应为 guest_role_1~guest_role_6"}), 400
 
         keys_data = load_join_keys()
         key_item = next((k for k in keys_data.get("keys", []) if k.get("key") == join_key), None)
@@ -757,6 +767,8 @@ def agent_push():
         target["detail"] = detail
         if name:
             target["name"] = name
+        if avatar:
+            target["avatar"] = avatar
         target["updated_at"] = datetime.now().isoformat()
         target["area"] = state_to_area(state)
         target["source"] = "remote-openclaw"
