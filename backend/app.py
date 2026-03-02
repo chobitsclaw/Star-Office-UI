@@ -607,6 +607,40 @@ def join_agent():
         return jsonify({"ok": False, "msg": str(e)}), 500
 
 
+@app.route("/agent-exchange-skill", methods=["POST"])
+def agent_exchange_skill():
+    """Exchange skill metadata between main Star and a guest agent."""
+    try:
+        data = request.get_json() or {}
+        target_agent_id = (data.get("targetAgentId") or data.get("agentId") or "").strip()
+        source_agent_id = (data.get("sourceAgentId") or "star").strip()
+        if not target_agent_id:
+            return jsonify({"ok": False, "msg": "缺少 targetAgentId"}), 400
+        agents = load_agents_state()
+        source = next((a for a in agents if a.get("agentId") == source_agent_id), None)
+        target = next((a for a in agents if a.get("agentId") == target_agent_id and not a.get("isMain")), None)
+        if not source:
+            return jsonify({"ok": False, "msg": "未找到 source agent"}), 404
+        if not target:
+            return jsonify({"ok": False, "msg": "未找到 target agent"}), 404
+        if target.get("authStatus") not in {"approved", "offline"}:
+            return jsonify({"ok": False, "msg": "目标访客未授权，无法交换"}), 403
+        now = datetime.now().isoformat()
+        source_avatar = source.get("avatar")
+        target_avatar = target.get("avatar")
+        source["avatar"], target["avatar"] = target_avatar, source_avatar
+        source["lastSkillExchangeAt"] = now
+        source["lastSkillExchangeWith"] = target.get("agentId")
+        target["lastSkillExchangeAt"] = now
+        target["lastSkillExchangeWith"] = source.get("agentId")
+        target["detail"] = f"已与 {source.get('name', 'Star')} 交换 skill"
+        target["updated_at"] = now
+        save_agents_state(agents)
+        return jsonify({"ok": True, "sourceAgentId": source.get("agentId"), "targetAgentId": target.get("agentId"), "exchangedAt": now, "msg": "交换完成"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500
+
+
 @app.route("/leave-agent", methods=["POST"])
 def leave_agent():
     """Remove an agent and free its one-time join key for reuse (optional)

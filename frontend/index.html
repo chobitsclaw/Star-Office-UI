@@ -690,6 +690,23 @@
             }
         }
 
+        function exchangeSkill(targetAgentId, targetName) {
+            fetch('/agent-exchange-skill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetAgentId })
+            }).then(response => response.json()).then(data => {
+                if (data.ok) {
+                    fetchGuestAgents();
+                    alert(`交换成功：已与 ${targetName || targetAgentId} 完成 skill 交换`);
+                } else {
+                    alert('交换失败：' + (data.msg || '未知错误'));
+                }
+            }).catch(error => {
+                alert('请求失败：' + error);
+            });
+        }
+
         function leaveGuestAgent(agentId, name) {
             fetch('/leave-agent', {
                 method: 'POST',
@@ -811,7 +828,7 @@
                 const stateText = stateMap[state] || state;
                 const subtitle = `${statusText} · ${stateText}`;
 
-                const pendingActions = `<button onclick="alert('交换 skill 功能开发中')">交换skill</button><button class="leave-btn" onclick="leaveGuestAgent('${agent.agentId}','${name}')">离开房间</button>`;
+                const pendingActions = `<button onclick="exchangeSkill('${agent.agentId}','${name}')">交换skill</button><button class="leave-btn" onclick="leaveGuestAgent('${agent.agentId}','${name}')">离开房间</button>`;
 
                 return `
                   <div class="guest-agent-item" data-name="${name}">
